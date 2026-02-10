@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Koşucu</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="game-wrap">
+      <header class="hud">
+        <div class="title">ÇEEEEEEEEEEEEEEEEEK</div>
+        <div class="stats">
+          <span>Skor: <strong id="score">0</strong></span>
+          <span>En iyi: <strong id="best">0</strong></span>
+        </div>
+      </header>
+
+      <main class="game">
+        <canvas id="game" width="900" height="360" aria-label="Koşucu oyunu"></canvas>
+        <div class="overlay" id="overlay">
+          <div class="card">
+            <h1 id="overlayTitle">SPEEDYMUSTAFA</h1>
+            <p id="overlayDesc">BASICAN ÇEKİCEN AQ.</p>
+            <p>BUNUDA BİLMEYEN OYNAMASIN BOLUM</p>
+            <div class="quiz" id="quiz" aria-live="polite">
+              <div class="quiz-row">
+                <span id="quizQuestion">1 + 1 = ?</span>
+                <input id="quizAnswer" type="number" inputmode="numeric" placeholder="Cevap" />
+              </div>
+              <div class="quiz-error" id="quizError"></div>
+            </div>
+            <div class="actions">
+              <button id="startBtn">Başlat</button>
+              <button id="shareBtn" class="secondary">Paylaş</button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <span>MUSTAFANIN FİKRİ OYUNUN ADI ÇOK ÇEKEN KAZANIR</span>
+      </footer>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>

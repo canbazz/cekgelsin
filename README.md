@@ -1,2 +1,0 @@
-# cekgelsin
-derlerimizi cekerek bitiriyoruz
