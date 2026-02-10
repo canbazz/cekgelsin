@@ -12,14 +12,33 @@ const quizEl = document.getElementById("quiz");
 const quizQuestionEl = document.getElementById("quizQuestion");
 const quizAnswerEl = document.getElementById("quizAnswer");
 const quizErrorEl = document.getElementById("quizError");
-const deathSound = new Audio("death.mp3");
-const homeSound = new Audio("home.mp3");
-const errorSound = new Audio("hata.mp3");
-const shareSound = new Audio("paylas.mp3");
-const correctSound = new Audio("dogru.mp3");
-const bgMusic = new Audio("cendere.mp3");
+
+// Ses dosyalarını preload ile yükle
+const deathSound = new Audio();
+deathSound.src = "death.mp3";
+deathSound.preload = "auto";
+
+const homeSound = new Audio();
+homeSound.src = "home.mp3";
+homeSound.preload = "auto";
+
+const errorSound = new Audio();
+errorSound.src = "hata.mp3";
+errorSound.preload = "auto";
+
+const shareSound = new Audio();
+shareSound.src = "paylas.mp3";
+shareSound.preload = "auto";
+
+const correctSound = new Audio();
+correctSound.src = "dogru.mp3";
+correctSound.preload = "auto";
+
+const bgMusic = new Audio();
+bgMusic.src = "cendere.mp3";
 bgMusic.loop = true;
 bgMusic.volume = 0.2;
+bgMusic.preload = "auto";
 
 const rand = (min, max) => Math.random() * (max - min) + min;
 
@@ -490,27 +509,48 @@ requestAnimationFrame(update);
 
 let audioUnlocked = false;
 
-function playHomeSound() {
-  homeSound.currentTime = 0;
-  homeSound.play().catch(err => console.log("Home sound failed:", err));
-}
-
 function unlockAudio() {
   if (audioUnlocked) return;
   
-  homeSound.play().then(() => {
-    console.log("Home sound unlocked!");
-    homeSound.currentTime = 0;
-  }).catch(err => console.log("Home sound failed:", err));
+  console.log("Attempting to unlock audio...");
   
+  // Tüm sesleri bir kere çalmayı dene (sessiz)
+  const allSounds = [homeSound, deathSound, errorSound, shareSound, correctSound, bgMusic];
+  
+  allSounds.forEach(sound => {
+    const originalVolume = sound.volume;
+    sound.volume = 0;
+    sound.play().then(() => {
+      sound.pause();
+      sound.currentTime = 0;
+      sound.volume = originalVolume;
+      console.log("Audio unlocked:", sound.src);
+    }).catch(err => {
+      sound.volume = originalVolume;
+      console.log("Audio unlock failed:", sound.src, err);
+    });
+  });
+  
+  // Arka plan müziğini başlat
+  bgMusic.volume = 0.2;
   bgMusic.play().then(() => {
     console.log("Background music started!");
   }).catch(err => console.log("Background music failed:", err));
   
+  // Home sesi çal
+  homeSound.volume = 1;
+  homeSound.currentTime = 0;
+  homeSound.play().then(() => {
+    console.log("Home sound played!");
+  }).catch(err => console.log("Home sound failed:", err));
+  
   audioUnlocked = true;
 }
 
+// Birden fazla event ile sesleri unlock et
 window.addEventListener("load", unlockAudio);
+document.addEventListener("click", unlockAudio, { once: true });
+document.addEventListener("touchstart", unlockAudio, { once: true });
+document.addEventListener("keydown", unlockAudio, { once: true });
 canvas.addEventListener("pointerdown", unlockAudio, { once: true });
-canvas.addEventListener("touchstart", unlockAudio, { once: true });
 startBtn.addEventListener("click", unlockAudio, { once: true });
