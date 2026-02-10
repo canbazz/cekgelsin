@@ -12,6 +12,14 @@ const quizEl = document.getElementById("quiz");
 const quizQuestionEl = document.getElementById("quizQuestion");
 const quizAnswerEl = document.getElementById("quizAnswer");
 const quizErrorEl = document.getElementById("quizError");
+const deathSound = new Audio("death.mp3");
+const homeSound = new Audio("home.mp3");
+const errorSound = new Audio("hata.mp3");
+const shareSound = new Audio("paylas.mp3");
+const correctSound = new Audio("dogru.mp3");
+const bgMusic = new Audio("cendere.mp3");
+bgMusic.loop = true;
+bgMusic.volume = 0.2;
 
 const rand = (min, max) => Math.random() * (max - min) + min;
 
@@ -29,6 +37,9 @@ const state = {
   stars: [],
   shake: 0,
   falling: false,
+  paused: false,
+  quizMode: "none",
+  autoScrollSpeed: 0.02,
 };
 
 const player = {
@@ -57,6 +68,19 @@ let quiz = {
   answer: 0,
 };
 
+function resetStageForNextRun() {
+  state.platforms = createInitialPlatforms();
+  state.currentIndex = 0;
+  setupPlayerOnPlatform();
+  state.clouds = Array.from({ length: 6 }, () => createCloud(true));
+  state.stars = Array.from({ length: 30 }, createStar);
+  state.shake = 0;
+  state.falling = false;
+  state.phase = "idle";
+  stick.length = 0;
+  stick.angle = 0;
+}
+
 function generateQuiz() {
   const useAdd = Math.random() > 0.4;
   if (useAdd) {
@@ -82,14 +106,9 @@ function resetGame() {
   state.running = true;
   state.time = performance.now();
   state.score = 0;
-  state.phase = "idle";
-  state.platforms = createInitialPlatforms();
-  state.currentIndex = 0;
-  state.clouds = Array.from({ length: 6 }, () => createCloud(true));
-  state.stars = Array.from({ length: 30 }, createStar);
-  state.shake = 0;
-  state.falling = false;
-  setupPlayerOnPlatform();
+  state.paused = false;
+  state.quizMode = "none";
+  resetStageForNextRun();
   overlayTitleEl.textContent = "Koşucu";
   overlayDescEl.textContent = "Basılı tut: küp uzar. Bırak: yana devrilir.";
   startBtn.textContent = "Başlat";
@@ -102,6 +121,10 @@ function resetGame() {
 
 function endGame() {
   state.running = false;
+  state.paused = false;
+  state.quizMode = "restart";
+  deathSound.currentTime = 0;
+  deathSound.play().catch(err => console.log("Death sound failed:", err));
   overlayTitleEl.textContent = "Kaybettiniz";
   overlayDescEl.textContent = `Skorun: ${Math.floor(state.score)}`;
   startBtn.textContent = "Yeniden Başla";
@@ -114,6 +137,7 @@ function endGame() {
     localStorage.setItem("runner-best", state.best);
     bestEl.textContent = state.best;
   }
+  resetStageForNextRun();
 }
 
 function createPlatform(startX) {
@@ -187,6 +211,7 @@ function startGrowing() {
     resetGame();
     return;
   }
+  if (state.paused) return;
   if (state.phase !== "idle") return;
   state.phase = "growing";
   controls.growHeld = true;
@@ -207,13 +232,34 @@ function resolveStick() {
   const success = reach >= gap && reach <= gap + next.w;
 
   if (success) {
-    state.phase = "walking";
+    player.x = next.x + next.w - player.size;
+    state.currentIndex += 1;
+    state.score += 1;
+    drawScore();
+    if (state.score % 4 === 0) {
+      state.phase = "idle";
+      showContinueQuiz();
+    } else {
+      state.phase = "shifting";
+    }
   } else {
     state.phase = "falling-down";
     state.falling = true;
     player.fallY = player.y;
   }
   return success;
+}
+
+function showContinueQuiz() {
+  state.paused = true;
+  state.quizMode = "continue";
+  overlayTitleEl.textContent = "Devam etmek için çöz";
+  overlayDescEl.textContent = "4 hamlede bir küçük soru.";
+  startBtn.textContent = "Devam Et";
+  shareBtn.style.display = "none";
+  quizEl.style.display = "block";
+  generateQuiz();
+  overlayEl.classList.remove("hidden");
 }
 
 function drawBackground() {
@@ -277,31 +323,28 @@ function update(timestamp) {
   const delta = timestamp - state.time;
   state.time = timestamp;
 
-  if (state.running) {
+  if (state.running && !state.paused) {
     updateClouds();
 
+    if (["idle", "growing", "falling"].includes(state.phase)) {
+      const drift = delta * state.autoScrollSpeed;
+      state.platforms.forEach((platform) => {
+        platform.x -= drift;
+      });
+      stick.x -= drift;
+      player.x -= drift;
+    }
+
     if (state.phase === "growing") {
-      stick.length += delta * 0.06;
+      stick.length += delta * 0.08;
       stick.length = Math.min(stick.length, 320);
     }
 
     if (state.phase === "falling") {
-      stick.angle += delta * 0.006;
+      stick.angle += delta * 0.008;
       if (stick.angle >= Math.PI / 2) {
         stick.angle = Math.PI / 2;
         resolveStick();
-      }
-    }
-
-    if (state.phase === "walking") {
-      const target = nextPlatform().x + nextPlatform().w - player.size;
-      player.x += delta * 0.12;
-      if (player.x >= target) {
-        player.x = target;
-        state.currentIndex += 1;
-        state.score += 1;
-        drawScore();
-        state.phase = "shifting";
       }
     }
 
@@ -332,7 +375,12 @@ function update(timestamp) {
 
     if (state.phase === "falling-down") {
       player.fallY += delta * 0.22;
-      if (player.fallY > canvas.height + 60) {
+      const targetFall = state.groundY + 30;
+      if (player.fallY >= targetFall) {
+        player.fallY = targetFall;
+        stick.length = 0;
+        stick.angle = 0;
+        state.phase = "fallen";
         endGame();
       }
     }
@@ -355,7 +403,7 @@ function render() {
 
   if (state.phase === "growing" || state.phase === "falling") {
     // Uzayan küp stick ile çiziliyor
-  } else if (state.phase === "falling-down") {
+  } else if (state.phase === "falling-down" || state.phase === "fallen") {
     ctx.fillStyle = player.color;
     ctx.fillRect(player.x, player.fallY, player.size, player.size);
   } else {
@@ -395,17 +443,31 @@ canvas.addEventListener("pointerup", (event) => {
 });
 
 startBtn.addEventListener("click", () => {
-  if (overlayTitleEl.textContent === "Kaybettiniz") {
+  if (state.quizMode !== "none") {
     const userAnswer = Number(quizAnswerEl.value);
     if (!Number.isFinite(userAnswer) || userAnswer !== quiz.answer) {
       quizErrorEl.textContent = "Yanlış cevap. Tekrar dene.";
       quizAnswerEl.focus();
+      errorSound.currentTime = 0;
+      errorSound.play().catch(err => console.log("Error sound failed:", err));
       return;
     }
+    correctSound.currentTime = 0;
+    correctSound.play().catch(err => console.log("Correct sound failed:", err));
   }
+
+  if (state.quizMode === "continue") {
+    state.paused = false;
+    state.quizMode = "none";
+    overlayEl.classList.add("hidden");
+    return;
+  }
+
   resetGame();
 });
 shareBtn.addEventListener("click", async () => {
+  shareSound.currentTime = 0;
+  shareSound.play().catch(err => console.log("Share sound failed:", err));
   const score = Math.floor(state.score);
   const text = `Skorum ${score}! Daha iyisini yapabilir misin?`;
   if (navigator.share) {
@@ -425,3 +487,30 @@ shareBtn.addEventListener("click", async () => {
 });
 
 requestAnimationFrame(update);
+
+let audioUnlocked = false;
+
+function playHomeSound() {
+  homeSound.currentTime = 0;
+  homeSound.play().catch(err => console.log("Home sound failed:", err));
+}
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  
+  homeSound.play().then(() => {
+    console.log("Home sound unlocked!");
+    homeSound.currentTime = 0;
+  }).catch(err => console.log("Home sound failed:", err));
+  
+  bgMusic.play().then(() => {
+    console.log("Background music started!");
+  }).catch(err => console.log("Background music failed:", err));
+  
+  audioUnlocked = true;
+}
+
+window.addEventListener("load", unlockAudio);
+canvas.addEventListener("pointerdown", unlockAudio, { once: true });
+canvas.addEventListener("touchstart", unlockAudio, { once: true });
+startBtn.addEventListener("click", unlockAudio, { once: true });
