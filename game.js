@@ -136,12 +136,20 @@ function resetGame() {
   quizAnswerEl.disabled = false;
   overlayEl.classList.add("hidden");
   drawScore();
+  
+  // Arka plan müziğini başlat
+  bgMusic.currentTime = 0;
+  bgMusic.play().catch(err => console.log("Background music play failed:", err));
 }
 
 function endGame() {
   state.running = false;
   state.paused = false;
   state.quizMode = "restart";
+  
+  // Arka plan müziğini durdur
+  bgMusic.pause();
+  
   deathSound.currentTime = 0;
   deathSound.play().catch(err => console.log("Death sound failed:", err));
   overlayTitleEl.textContent = "Kaybettiniz";
@@ -272,6 +280,10 @@ function resolveStick() {
 function showContinueQuiz() {
   state.paused = true;
   state.quizMode = "continue";
+  
+  // Quiz açılırken müziği duraklat
+  bgMusic.pause();
+  
   overlayTitleEl.textContent = "Devam etmek için çöz";
   overlayDescEl.textContent = "4 hamlede bir küçük soru.";
   startBtn.textContent = "Devam Et";
@@ -479,6 +491,9 @@ startBtn.addEventListener("click", () => {
     state.paused = false;
     state.quizMode = "none";
     overlayEl.classList.add("hidden");
+    
+    // Oyun devam ederken müziği tekrar başlat
+    bgMusic.play().catch(err => console.log("Background music resume failed:", err));
     return;
   }
 
@@ -514,7 +529,7 @@ function unlockAudio() {
   
   console.log("Attempting to unlock audio...");
   
-  // Tüm sesleri bir kere çalmayı dene (sessiz)
+  // Tüm sesleri bir kere çalmayı dene (sessiz) - unlock için
   const allSounds = [homeSound, deathSound, errorSound, shareSound, correctSound, bgMusic];
   
   allSounds.forEach(sound => {
@@ -531,13 +546,7 @@ function unlockAudio() {
     });
   });
   
-  // Arka plan müziğini başlat
-  bgMusic.volume = 0.2;
-  bgMusic.play().then(() => {
-    console.log("Background music started!");
-  }).catch(err => console.log("Background music failed:", err));
-  
-  // Home sesi çal
+  // Home sesi çal (karşılama sesi)
   homeSound.volume = 1;
   homeSound.currentTime = 0;
   homeSound.play().then(() => {
